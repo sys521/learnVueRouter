@@ -181,7 +181,6 @@ if (inBrowser && window.Vue) {
 
 
 整个install.js 的内容不多。而且，我们可以很清晰的大致了解install 内容都干了什么
-```
 
 首先，有一个全局的混入，在Vue实例beforeCreated 和 destoryed 阶段调用。
 
