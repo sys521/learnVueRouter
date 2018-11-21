@@ -184,37 +184,20 @@ if (inBrowser && window.Vue) {
 
 首先，有一个全局的混入，在Vue实例beforeCreated 和 destoryed 阶段调用。
 
-```
- Vue.mixin({
-    beforeCreate () {
-      // this 其实指的就是Vue的实例，根组件 或者 组件， this.options对象，会获取到我们传过去的 new VueRouter()
-      if (isDef(this.$options.router)) {
-        this._routerRoot = this
-        this._router = this.$options.router
+在beforeCreate 阶段时候调用的代码
 
-        this._router.init(this)
-        // $router 响应式的面纱
-        Vue.util.defineReactive(this, '_route', this._router.history.current)
-      } else {
-        this._routerRoot = (this.$parent && this.$parent._routerRoot) || this
-      }
-      registerInstance(this, this)
-    },
-    destroyed () {
-      registerInstance(this)
-    }
-  })
 ```
-我们可以大致了解到。 首先给Vue实例上增加了几个属性 ```_router, _routerRoot``` 然后，通过this.$options 选项，拿到我们最初传给Vue的 options,
+if (isDef(this.$options.router)) {
+  this._routerRoot = this
+  this._router = this.$options.router
+  this._router.init(this)
+  // $router
+  Vue.util.defineReactive(this, '_route', this._router.history.current)
+} else {
+  this._routerRoot = (this.$parent && this.$parent._routerRoot) || this
+}
 ```
-new Vue({
-  el: '#app',
-  router,
-  ...
-})
-```
-其中router, 我们在构造完Vue后，可以通过this.$options拿到，这些，vue官方文档上也有说明。
-然后，用 vue.util.defineReactive。。。。
+在Vue根组件上增加了一个__routerRoot属性，指向自身，然后，又增加了一个_router属性就是我们的VueRouter()实例，最后,将this._router.history.current变成响应式的（具体这个过程也比较复杂，可以找vue源码的一些分析）,如果当前组件不是根组件的话，this._routerRoot 就指向父组件的 _roterRoot，经过这些下来，因为在vue中，声明周期中，总是父组件先 beforeCreate，所以，所有的组件访问到this._routerRoot，一般情况下，应该都是指向我们的根组件。
 
 ```
   // 劫持Vue.$router属性 返回的是this._routerRoot_router, 实际上这个对象指的是 VueRouter实例的history对象
@@ -226,7 +209,7 @@ new Vue({
     get () { return this._routerRoot._route }
   })
 ```
-这段代码确保，我们可以在每一个组件中访问$router, 都指向的是this._rooterRoot, this_rotterRoot._router 又指向的是this._router 也就是 this.$options.router 就是我们使用```new Vue({router})```中的router. 访问this._routerRoot._route 其实，就是访问的 ```this.$options.router.history.current```
+最后，其实所有我们访问到的 this.$router 实际上都是访问的根组件的_router , 指向的就是我们的VueRouter的实例，this.$route 其实就是访问的 VueRouter 实例的 history.current属性。
 
 
 ```
@@ -241,6 +224,31 @@ const strats = Vue.config.optionMergeStrategies
   strats.beforeRouteEnter = strats.beforeRouteLeave = strats.beforeRouteUpdate = strats.created
 ```
  设定了合并策略。。这个合并策略和created的合并策略保持了一样
+
+ 然后，基本整个install大致上就这样了，我们应该重点应该是这段代码
+
+```
+ Vue.mixin({
+    beforeCreate () {
+      // this 其实指的就是Vue的实例，根组件 或者 组件， this.options对象，会获取到我们传过去的 new VueRouter()
+      if (isDef(this.$options.router)) {
+        this._routerRoot = this
+        this._router = this.$options.router
+        this._router.init(this)
+        // $router 响应式的面纱
+        Vue.util.defineReactive(this, '_route', this._router.history.current)
+      } else {
+        this._routerRoot = (this.$parent && this.$parent._routerRoot) || this
+      }
+      registerInstance(this, this)
+    },
+    destroyed () {
+      registerInstance(this)
+    }
+  })
+```
+为了，更好的方便我们阅读代码，我们这样干看，其实有点难受。我们应该用最一个简单的实例代码，来跟着整个代码走一遍。
+虽然，有可能，我们的例子不会覆盖到整个代码。但是，我们基本上。能跟着整个流程走一遍的话。我们就更容易分析，整个vue-router怎么工作的啦。
 
 
 
